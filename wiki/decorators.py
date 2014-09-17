@@ -45,7 +45,8 @@ def response_forbidden(request, article, urlpath):
 def get_article(func=None, can_read=True, can_write=False, 
                  deleted_contents=False, not_locked=False,
                  can_delete=False, can_moderate=False,
-                 can_create=False):
+                 can_create=False, 
+                 can_comment=False, can_read_comment=True, can_delete_comment=False):
     """View decorator for processing standard url keyword args: Intercepts the 
     keyword args path or article_id and looks up an article, calling the decorated 
     func with this ID.
@@ -146,7 +147,18 @@ def get_article(func=None, can_read=True, can_write=False,
             
         if can_moderate and not article.can_moderate(request.user):
             return response_forbidden(request, article, urlpath)
-        
+
+        # team112
+        if can_comment and not article.can_comment(request.user):
+            return response_forbidden(request, article, urlpath)
+
+        if can_read_comment and not article.can_read_comment(request.user):
+            return response_forbidden(request, article, urlpath)
+
+        if can_delete_comment and not article.can_delete_comment(request.user):
+            return response_forbidden(request, article, urlpath)
+
+
         kwargs['urlpath'] = urlpath
         
         return func(request, article, *args, **kwargs)
@@ -157,5 +169,7 @@ def get_article(func=None, can_read=True, can_write=False,
         return lambda func: get_article(func, can_read=can_read, can_write=can_write, 
                                         deleted_contents=deleted_contents,
                                         not_locked=not_locked,can_delete=can_delete,
-                                        can_moderate=can_moderate, can_create=can_create)
+                                        can_moderate=can_moderate, can_create=can_create,
+                                        #can_comment=can_comment,
+                                        )
 

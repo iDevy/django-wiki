@@ -21,6 +21,8 @@ class WikiURLPatterns(object):
     article_create_view_class = article.Create
     article_delete_view_class = article.Delete
     article_deleted_view_class = article.Deleted
+    article_comment_view_class = article.Comment
+    article_delete_comment_view_class = article.DeleteComment
     article_dir_view_class = article.Dir
     article_edit_view_class = article.Edit
     article_preview_view_class = article.Preview
@@ -89,6 +91,13 @@ class WikiURLPatterns(object):
             url('^(?P<article_id>\d+)/history/$', self.article_history_view_class.as_view(), name='history'),
             url('^(?P<article_id>\d+)/settings/$', self.article_settings_view_class.as_view(), name='settings'),
             url('^(?P<article_id>\d+)/source/$', self.article_source_view_class.as_view(), name='source'),
+
+            # works
+            url('^(?P<article_id>\d+)/comment/$', self.article_comment_view_class.as_view(), name='comment'),
+
+            # TODO: not works =(. Mystical and unknown issue.
+            url('^(?P<article_id>\d+)/delcom/(?P<comm_id>\d+)/$', self.article_delete_comment_view_class.as_view(), name='delete_comment'),
+
             url('^(?P<article_id>\d+)/revision/change/(?P<revision_id>\d+)/$', self.revision_change_view.as_view(), name='change_revision'),
             url('^(?P<article_id>\d+)/revision/merge/(?P<revision_id>\d+)/$', self.revision_merge_view, name='merge_revision'),
             url('^(?P<article_id>\d+)/plugin/(?P<slug>\w+)/$', self.article_plugin_view_class.as_view(), name='plugin'),
@@ -107,6 +116,10 @@ class WikiURLPatterns(object):
             url('^(?P<path>.+/|)_dir/$', self.article_dir_view_class.as_view(), name='dir'),
             url('^(?P<path>.+/|)_settings/$', self.article_settings_view_class.as_view(), name='settings'),
             url('^(?P<path>.+/|)_source/$', self.article_source_view_class.as_view(), name='source'),
+
+            url('^(?P<path>.+/|)_comment/$', self.article_comment_view_class.as_view(), name='comment'),
+            url('^(?P<path>.+/|)_delcom/(?P<comm_id>\d+)/$', self.article_delete_comment_view_class.as_view(), name='delete_comment'),
+            
             url('^(?P<path>.+/|)_revision/change/(?P<revision_id>\d+)/$', self.revision_change_view.as_view(), name='change_revision'),
             url('^(?P<path>.+/|)_revision/merge/(?P<revision_id>\d+)/$', self.revision_merge_view, name='merge_revision'),
             url('^(?P<path>.+/|)_plugin/(?P<slug>\w+)/$', self.article_plugin_view_class.as_view(), name='plugin'),

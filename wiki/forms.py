@@ -11,7 +11,7 @@ from django.utils.safestring import mark_safe
 from django.forms.util import flatatt
 from django.utils.encoding import force_unicode
 from django.utils.html import escape, conditional_escape
-
+from django.shortcuts import redirect
 from itertools import chain
 
 from wiki import models
@@ -28,13 +28,13 @@ User = get_user_model()
 
 class SpamProtectionMixin():
     """Check a form for spam. Only works if properties 'request' and 'revision_model' are set."""
-    
+
     revision_model = models.ArticleRevision
-    
+
     def check_spam(self):
         """Check that user or IP address does not perform content edits that
         are not allowed.
-        
+
         current_revision can be any object inheriting from models.BaseRevisionMixin 
         """
         request = self.request
@@ -44,10 +44,10 @@ class SpamProtectionMixin():
             user = request.user
         else:
             ip_address = request.META.get('REMOTE_ADDR', None)
-        
+
         if not (user or ip_address):
             raise forms.ValidationError(_(u'Spam protection failed to find both a logged in user and an IP address.'))
-        
+
         def check_interval(from_time, max_count, interval_name):
             from_time = timezone.now() - timedelta(minutes=settings.REVISIONS_MINUTES_LOOKBACK)
             revisions = self.revision_model.objects.filter(
@@ -62,8 +62,7 @@ class SpamProtectionMixin():
                 raise forms.ValidationError(_(u'Spam protection: You are only allowed to create or edit %(revisions)d article(s) per %(interval_name)s.') % 
                                             {'revisions': max_count,
                                              'interval_name': interval_name,})
-            
-        
+
         if not settings.LOG_IPS_ANONYMOUS:
             return
         if request.user.has_perm('wiki.moderator'):
@@ -75,8 +74,8 @@ class SpamProtectionMixin():
         else:
             per_minute = settings.REVISIONS_PER_MINUTES_ANONYMOUS
         check_interval(from_time, per_minute,
-                       _('minute') if settings.REVISIONS_MINUTES_LOOKBACK==1 else (_(u'%d minutes') % settings.REVISIONS_MINUTES_LOOKBACK),)
-            
+                       _('minute') if settings.REVISIONS_MINUTES_LOOKBACK == 1 else (_(u'%d minutes') % settings.REVISIONS_MINUTES_LOOKBACK),)
+
         from_time = timezone.now() - timedelta(minutes=60)
         if request.user.is_authenticated():
             per_hour = settings.REVISIONS_PER_MINUTES
@@ -86,7 +85,7 @@ class SpamProtectionMixin():
 
 
 class CreateRootForm(forms.Form):
-    
+
     title = forms.CharField(label=_(u'Title'), help_text=_(u'Initial title of the article. May be overridden with revision titles.'))
     content = forms.CharField(label=_(u'Type in some contents'),
                               help_text=_(u'This is just the initial contents of your article. After creating it, you can use more complex features like adding plugins, meta data, related articles etc...'),
@@ -465,3 +464,18 @@ class UserCreationForm(UserCreationForm):
     class Meta:
         model = User
         fields = ( "username", "email" )
+
+
+class CommentForm(forms.Form):
+    
+    text = forms.CharField(widget=forms.Textarea(attrs={
+                                    'placeholder': _(u'Комментарий...'),
+                                    'class':'form-control',
+                                    'rows':'2'}),
+                                    
+                                    )
+
+    class Meta:
+        model = models.Comment
+        fields = ('text',)
+                    

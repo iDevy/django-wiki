@@ -53,6 +53,7 @@ def wiki_render(context, article, preview_content=None):
         'content': content,
         'preview': not preview_content is None,
         'plugins': plugin_registry.get_plugins(),
+        
         'STATIC_URL': django_settings.STATIC_URL,
         'CACHE_TIMEOUT': settings.CACHE_TIMEOUT,
     })

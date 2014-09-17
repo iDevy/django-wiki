@@ -37,4 +37,53 @@
 
 {% block wiki_footer_prepend %}
   <p style="margin-bottom: 10px;"><em>{% trans "This article was last modified:" %} {{ article.current_revision.modified }}</em></p>
+  <hr>
+  {% block comments %}
+
+    {% if can_comment %}
+    <form action="{% url 'wiki:comment' path=urlpath.path %}" method="POST" class="form-inline">
+      {% csrf_token %}
+      {{ commentform.as_p }}
+      <input class="btn btn-primary btn-sm" type="submit" value="Отправить">
+    </form>
+    {% endif %}
+    <hr>
+    {% if can_read_comment %}
+    <div class="container-fluid">
+      <div class="row">
+        <div class="text-info">
+          <div class="col-md-8 col-lg-8"><h4>Комментарии:</h4></div>
+          <div class="col-md-4 col-lg-4 text-right">
+            <span class="label label-default">{{comments.count}}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+      {% for comment in comments %}
+        
+        <div class="row-fluid">
+
+          <div class="col-md-8 col-lg-8">
+            <p><span class="icon-time"> {{ comment.created }}</span> | <span class="icon-user"> </span> {{ comment.author }} </p>
+          </div>
+          {% if can_delete_comment %}
+          <div class="col-md-4 col-lg-4 text-right"> 
+            {# url 'wiki:delete_comment' not working for some reason #}
+            <p><a href="_delcom/{{ comment.id }}/" class="label label-danger"> Удалить </a></p>
+          </div>
+          {% endif %}
+        </div>
+        <div class="container-fluid">
+          <div class="col-md-9 col-lg-9">
+            <p><span class="commenttext">{{ comment.text }}</span></p>
+          </div>
+          <br><br>
+          <hr>
+        </div>
+       
+      {% endfor %}
+      {% endif %}
+    {% endblock comments %}
+
 {% endblock %}

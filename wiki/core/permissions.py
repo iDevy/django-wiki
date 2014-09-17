@@ -13,6 +13,7 @@ from wiki.conf import settings
 
 def can_read(article, user):
     if callable(settings.CAN_READ):
+        print settings.CAN_READ(article, user)
         return settings.CAN_READ(article, user)
     else:
         # Deny reading access to deleted articles if user has no delete access
@@ -21,8 +22,11 @@ def can_read(article, user):
             return False
         
         # Check access for other users...
+
         if user.is_anonymous() and not settings.ANONYMOUS:
             return False
+        if user.is_active:
+            return True
         elif article.other_read:
             return True
         elif user.is_anonymous():
@@ -79,6 +83,53 @@ def can_delete(article, user):
     if callable(settings.CAN_DELETE):
         return settings.CAN_DELETE(article, user)
     return not user.is_anonymous() and article.can_write(user)
+
+def can_comment(article, user):
+    if callable(settings.CAN_COMMENT):
+        return settings.CAN_COMMENT(article, user)
+    # Check access for other users...
+    if user.is_anonymous() and not settings.ANONYMOUS_WRITE:
+        return False
+    elif article.other_write:
+        return True
+    elif user.is_anonymous():
+        return  False
+    if user == article.owner:
+        return True
+    if article.group_write:
+        if article.group and user and user.groups.filter(id=article.group.id).exists():
+            return True
+    if article.can_moderate(user):
+        return True
+    if user.is_active:
+        return True
+    return False
+
+def can_read_comment(article, user):
+    if callable(settings.CAN_READ_COMMENT):
+        return settings.CAN_READ_COMMENT(article, user)
+    # Check access for other users...
+    if user.is_anonymous() and not settings.ANONYMOUS_WRITE:
+        return False
+    elif article.other_write:
+        return True
+    elif user.is_anonymous():
+        return  False
+    if user == article.owner:
+        return True
+    if article.group_write:
+        if article.group and user and user.groups.filter(id=article.group.id).exists():
+            return True
+    if article.can_moderate(user):
+        return True
+    if article.other_read:
+        return True
+    return False
+
+def can_delete_comment(article, user):
+    if callable(settings.CAN_DELETE_COMMENT):
+        return settings.CAN_DELETE_COMMENT(article, user)
+    return not user.is_anonymous() and user.has_perm('wiki.moderate')
 
 def can_moderate(article, user):
     if callable(settings.CAN_MODERATE):

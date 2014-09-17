@@ -23,9 +23,9 @@ from django.db import transaction
 
 #Django 1.6 transaction API, required for 1.8+
 try:
-   notrans=transaction.non_atomic_requests 
+    notrans = transaction.non_atomic_requests
 except:
-   notrans=transaction.commit_manually
+    notrans = transaction.commit_manually
 
 from wiki.core.exceptions import NoRootURL
 from wiki.core import permissions
@@ -34,7 +34,7 @@ from django.http import Http404
 
 class ArticleView(ArticleMixin, TemplateView):
 
-    template_name="wiki/view.html"
+    template_name = "wiki/view.html"
 
     @method_decorator(get_article(can_read=True))
     def dispatch(self, request, article, *args, **kwargs):
@@ -48,7 +48,7 @@ class ArticleView(ArticleMixin, TemplateView):
 class Create(FormView, ArticleMixin):
 
     form_class = forms.CreateForm
-    template_name="wiki/create.html"
+    template_name = "wiki/create.html"
 
     @method_decorator(get_article(can_write=True, can_create=True))
     def dispatch(self, request, article, *args, **kwargs):
@@ -64,12 +64,12 @@ class Create(FormView, ArticleMixin):
         initial['slug'] = self.request.GET.get('slug', None)
         kwargs['initial'] = initial
         form = form_class(self.request, self.urlpath, **kwargs)
-        form.fields['slug'].widget = forms.TextInputPrepend(prepend='/'+self.urlpath.path)
+        form.fields['slug'].widget = forms.TextInputPrepend(prepend='/' + self.urlpath.path)
         return form
 
     @notrans
     def form_valid(self, form):
-        user=None
+        user = None
         ip_address = None
         if not self.request.user.is_anonymous():
             user = self.request.user
@@ -125,7 +125,7 @@ class Create(FormView, ArticleMixin):
 class Delete(FormView, ArticleMixin):
 
     form_class = forms.DeleteForm
-    template_name="wiki/delete.html"
+    template_name = "wiki/delete.html"
 
     @method_decorator(get_article(can_write=True, not_locked=True, can_delete=True))
     def dispatch(self, request, article, *args, **kwargs):
@@ -183,7 +183,6 @@ class Delete(FormView, ArticleMixin):
             messages.error(self.request, _(u'This article cannot be deleted because it has children or is a root article.'))
             return redirect('wiki:get', article_id=self.article.id)
 
-
         if can_moderate and purge:
             # First, remove children
             if self.urlpath:
@@ -219,7 +218,7 @@ class Edit(FormView, ArticleMixin):
     """Edit an article and process sidebar plugins."""
 
     form_class = forms.EditForm
-    template_name="wiki/edit.html"
+    template_name = "wiki/edit.html"
 
     @method_decorator(get_article(can_write=True, not_locked=True))
     def dispatch(self, request, article, *args, **kwargs):
@@ -304,6 +303,7 @@ class Edit(FormView, ArticleMixin):
             else:
                 form = None
             self.sidebar.append((plugin, form))
+        # edited to make place for commentsform
         return super(Edit, self).post(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -338,7 +338,7 @@ class Deleted(Delete):
     """Tell a user that an article has been deleted. If user has permissions,
     let user restore and possibly purge the deleted article and children."""
 
-    template_name="wiki/deleted.html"
+    template_name = "wiki/deleted.html"
     form_class = forms.DeleteForm
 
     @method_decorator(get_article(can_read=True, deleted_contents=True))
@@ -392,9 +392,10 @@ class Deleted(Delete):
         kwargs['purge_form'] = kwargs.pop('form', None)
         return super(Delete, self).get_context_data(**kwargs)
 
+
 class Source(ArticleMixin, TemplateView):
 
-    template_name="wiki/source.html"
+    template_name = "wiki/source.html"
 
     @method_decorator(get_article(can_read=True))
     def dispatch(self, request, article, *args, **kwargs):
@@ -407,7 +408,7 @@ class Source(ArticleMixin, TemplateView):
 
 class History(ListView, ArticleMixin):
 
-    template_name="wiki/history.html"
+    template_name = "wiki/history.html"
     allow_empty = True
     context_object_name = 'revisions'
     paginate_by = 10
@@ -431,7 +432,7 @@ class History(ListView, ArticleMixin):
 
 class Dir(ListView, ArticleMixin):
 
-    template_name="wiki/dir.html"
+    template_name = "wiki/dir.html"
     allow_empty = True
     context_object_name = 'directory'
     model = models.URLPath
@@ -476,7 +477,7 @@ class Dir(ListView, ArticleMixin):
 
 class SearchView(ListView):
 
-    template_name="wiki/search.html"
+    template_name = "wiki/search.html"
     paginate_by = 25
     context_object_name = "articles"
 
@@ -506,6 +507,92 @@ class SearchView(ListView):
         kwargs['search_query'] = self.query
         return kwargs
 
+
+# team112
+# comments
+class Comment(FormView, ArticleMixin):
+
+    form_class = forms.CommentForm
+    template_name = "wiki/comment.html"
+
+    @method_decorator(get_article(can_read=True, can_comment=True))
+    def dispatch(self, request, article, *args, **kwargs):
+        print 'dispatch'
+        return super(Comment, self).dispatch(request, article, *args, **kwargs)
+
+    @notrans
+    def form_valid(self, form):
+        print 'form valid'
+        user = None
+        ip_address = None
+        if not self.request.user.is_anonymous():
+            user = self.request.user
+            if settings.LOG_IPS_USERS:
+                ip_address = self.request.META.get('REMOTE_ADDR', None)
+        elif settings.LOG_IPS_ANONYMOUS:
+            ip_address = self.request.META.get('REMOTE_ADDR', None)
+
+        if self.request.user.is_anonymous():
+            return redirect('wiki:get', '')
+        # if not any([ self.request.POST.get('save', False),
+        #              self.request.POST.get('save_changes', False),
+        #              self.request.POST.get('slug', False),
+        #           ]):
+        try:
+            form = forms.CommentForm(self.request.POST)
+            newcomment = models.Comment.objects.create(article=self.article,
+                                                        author=self.request.user,
+                                                        text=form.data['text'])
+            newcomment.save()
+            transaction.commit()
+
+        # TODO: Handle individual exceptions better and give good feedback.
+        except Exception, e:
+            print e
+            transaction.rollback()
+            if self.request.user.is_superuser:
+                messages.error(self.request, _(u"There was an error creating this article: %s") % str(e))
+            else:
+                messages.error(self.request, _(u"There was an error creating this article."))
+        transaction.commit()
+        return redirect('wiki:get', article_id=self.article.id)
+
+        #return self.get_success_url()
+
+    def get_success_url(self):
+        if self.urlpath:
+            return redirect("wiki:get", path=self.urlpath.path)
+        return redirect('wiki:get', article_id=self.article.id)
+
+    def get_context_data(self, **kwargs):
+        c = ArticleMixin.get_context_data(self, **kwargs)
+        c['parent_urlpath'] = self.urlpath
+        c['parent_article'] = self.article
+        c['create_form'] = kwargs.pop('form', None)
+        c['editor'] = editors.getEditor()
+        return c
+
+
+class DeleteComment(ArticleMixin, TemplateView):
+
+    template_name = 'wiki/article.html'
+
+    @method_decorator(get_article(can_write=True, can_create=True, can_delete_comment=True))
+    def dispatch(self, request, article, *args, **kwargs):
+        return super(DeleteComment, self).dispatch(request, article, *args, **kwargs)
+
+    def get(self, *args, **kwargs):
+        if self.article.can_delete_comment(self.request.user):
+            models.Comment.objects.get(pk=kwargs.get('comm_id')).delete()
+        return self.get_success_url()
+
+    def get_success_url(self):
+        """Go to the article view page when the article has been saved"""
+        if self.urlpath:
+            return redirect("wiki:get", path=self.urlpath.path)
+        return redirect('wiki:get', article_id=self.article.id)
+
+
 class Plugin(View):
 
     def dispatch(self, request, path=None, slug=None, **kwargs):
@@ -515,10 +602,11 @@ class Plugin(View):
                 return plugin.article_view(request, **kwargs)
         raise Http404()
 
+
 class Settings(ArticleMixin, TemplateView):
 
     permission_form_class = forms.PermissionsForm
-    template_name="wiki/settings.html"
+    template_name = "wiki/settings.html"
 
     @method_decorator(login_required)
     @method_decorator(get_article(can_read=True))
@@ -596,9 +684,9 @@ class ChangeRevisionView(RedirectView):
 
     def get_redirect_url(self, **kwargs):
         if self.urlpath:
-            return reverse("wiki:history", kwargs={'path':self.urlpath.path})
+            return reverse("wiki:history", kwargs={'path': self.urlpath.path})
         else:
-            return reverse('wiki:history', kwargs={'article_id':self.article.id})
+            return reverse('wiki:history', kwargs={'article_id': self.article.id})
 
     def change_revision(self):
         revision = get_object_or_404(models.ArticleRevision, article=self.article, id=self.kwargs['revision_id'])
@@ -609,9 +697,10 @@ class ChangeRevisionView(RedirectView):
             'revision_number': revision.revision_number,
         })
 
+
 class Preview(ArticleMixin, TemplateView):
 
-    template_name="wiki/preview_inline.html"
+    template_name = "wiki/preview_inline.html"
 
     @method_decorator(get_article(can_read=True, deleted_contents=True))
     def dispatch(self, request, article, *args, **kwargs):
@@ -638,7 +727,7 @@ class Preview(ArticleMixin, TemplateView):
             self.title = self.revision.title
         if self.revision and not self.content:
             self.content = self.revision.content
-        return super(Preview, self).get( request, *args, **kwargs)
+        return super(Preview, self).get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         kwargs['title'] = self.title
@@ -669,6 +758,7 @@ def diff(request, revision_id, other_revision_id=None):
 
     return dict(diff=list(diff), other_changes=other_changes)
 
+
 # TODO: Throw in a class-based view
 @get_article(can_write=True)
 def merge(request, article, revision_id, urlpath=None, template_file="wiki/preview_inline.html", preview=False):
@@ -694,8 +784,8 @@ def merge(request, article, revision_id, urlpath=None, template_file="wiki/previ
         new_revision.inherit_predecessor(article)
         new_revision.deleted = False
         new_revision.locked = False
-        new_revision.title=article.current_revision.title
-        new_revision.content=content
+        new_revision.title = article.current_revision.title
+        new_revision.content = content
         new_revision.automatic_log = (_(u'Merge between revision #%(r1)d and revision #%(r2)d') %
                                       {'r1': revision.revision_number,
                                        'r2': old_revision.revision_number})
@@ -711,7 +801,6 @@ def merge(request, article, revision_id, urlpath=None, template_file="wiki/previ
             return redirect('wiki:edit', path=urlpath.path)
         else:
             return redirect('wiki:edit', article_id=article.id)
-
 
     c = RequestContext(request, {'article': article,
                                  'title': article.current_revision.title,

@@ -123,7 +123,6 @@ class URLPath(MPTTModel):
         """
         try:
             for descendant in self.get_descendants(include_self=True).order_by("-level"):
-                print "deleting " , descendant
                 descendant.article.delete()
             
             transaction.commit()
